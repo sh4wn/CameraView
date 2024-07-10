@@ -496,32 +496,34 @@ public class Camera2Engine extends CameraBaseEngine implements
         // Create a preview surface with the correct size.
         final Class outputClass = mPreview.getOutputClass();
         final Object output = mPreview.getOutput();
-        if (outputClass == SurfaceHolder.class) {
-            try {
-                // This must be called from the UI thread...
-                LOG.i("onStartBind:", "Waiting on UI thread...");
-                Tasks.await(Tasks.call(new Callable<Void>() {
-                    @Override
-                    public Void call() {
-                        ((SurfaceHolder) output).setFixedSize(
-                                mPreviewStreamSize.getWidth(),
-                                mPreviewStreamSize.getHeight());
-                        return null;
-                    }
-                }));
-            } catch (ExecutionException | InterruptedException e) {
-                throw new CameraException(e, CameraException.REASON_FAILED_TO_CONNECT);
+        if (output != null){
+            if (outputClass == SurfaceHolder.class) {
+                try {
+                    // This must be called from the UI thread...
+                    LOG.i("onStartBind:", "Waiting on UI thread...");
+                    Tasks.await(Tasks.call(new Callable<Void>() {
+                        @Override
+                        public Void call() {
+                            ((SurfaceHolder) output).setFixedSize(
+                                    mPreviewStreamSize.getWidth(),
+                                    mPreviewStreamSize.getHeight());
+                            return null;
+                        }
+                    }));
+                } catch (ExecutionException | InterruptedException e) {
+                    throw new CameraException(e, CameraException.REASON_FAILED_TO_CONNECT);
+                }
+                mPreviewStreamSurface = ((SurfaceHolder) output).getSurface();
+            } else if (outputClass == SurfaceTexture.class) {
+                ((SurfaceTexture) output).setDefaultBufferSize(
+                        mPreviewStreamSize.getWidth(),
+                        mPreviewStreamSize.getHeight());
+                mPreviewStreamSurface = new Surface((SurfaceTexture) output);
+            } else {
+                throw new RuntimeException("Unknown CameraPreview output class.");
             }
-            mPreviewStreamSurface = ((SurfaceHolder) output).getSurface();
-        } else if (outputClass == SurfaceTexture.class) {
-            ((SurfaceTexture) output).setDefaultBufferSize(
-                    mPreviewStreamSize.getWidth(),
-                    mPreviewStreamSize.getHeight());
-            mPreviewStreamSurface = new Surface((SurfaceTexture) output);
-        } else {
-            throw new RuntimeException("Unknown CameraPreview output class.");
+            outputSurfaces.add(mPreviewStreamSurface);
         }
-        outputSurfaces.add(mPreviewStreamSurface);
 
         // 2. VIDEO RECORDING
         if (getMode() == Mode.VIDEO) {
